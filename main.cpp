@@ -8,6 +8,8 @@
 
 using namespace std;
 
+#include <set>
+
 struct Student {
     string name;
     string gender_full;
@@ -15,6 +17,21 @@ struct Student {
     int scores[9];
     int avg_score;
     int rank;
+};
+
+struct StudentCmp {
+    const vector<Student>& students;
+    StudentCmp(const vector<Student>& s) : students(s) {}
+    bool operator()(int a, int b) const {
+        if (a == b) return false;
+        const Student& s1 = students[a];
+        const Student& s2 = students[b];
+        if (s1.avg_score != s2.avg_score) return s1.avg_score > s2.avg_score;
+        for (int i = 0; i < 9; ++i) {
+            if (s1.scores[i] != s2.scores[i]) return s1.scores[i] > s2.scores[i];
+        }
+        return s1.name < s2.name;
+    }
 };
 
 int main() {
@@ -25,6 +42,9 @@ int main() {
     vector<Student> all_students;
     vector<int> ranking;
     bool started = false;
+    
+    StudentCmp scmp(all_students);
+    set<int, StudentCmp> latest_set(scmp);
 
     string cmd;
     while (cin >> cmd) {
@@ -57,20 +77,13 @@ int main() {
             }
         } else if (cmd == "START") {
             started = true;
-            ranking.resize(all_students.size());
             for (int i = 0; i < (int)all_students.size(); ++i) {
-                ranking[i] = i;
+                latest_set.insert(i);
             }
-            auto cmp = [&](int a, int b) {
-                const Student& s1 = all_students[a];
-                const Student& s2 = all_students[b];
-                if (s1.avg_score != s2.avg_score) return s1.avg_score > s2.avg_score;
-                for (int i = 0; i < 9; ++i) {
-                    if (s1.scores[i] != s2.scores[i]) return s1.scores[i] > s2.scores[i];
-                }
-                return s1.name < s2.name;
-            };
-            sort(ranking.begin(), ranking.end(), cmp);
+            ranking.clear();
+            for (int idx : latest_set) {
+                ranking.push_back(idx);
+            }
             for (int i = 0; i < (int)ranking.size(); ++i) {
                 all_students[ranking[i]].rank = i + 1;
             }
@@ -80,24 +93,20 @@ int main() {
             cin >> name >> code >> score;
             if (name_to_idx.count(name)) {
                 int idx = name_to_idx[name];
+                if (started) latest_set.erase(idx);
                 all_students[idx].scores[code] = score;
                 int sum = 0;
                 for (int i = 0; i < 9; ++i) sum += all_students[idx].scores[i];
                 all_students[idx].avg_score = sum / 9;
+                if (started) latest_set.insert(idx);
             } else {
                 cout << "[Error]Update failed." << "\n";
             }
         } else if (cmd == "FLUSH") {
-            auto cmp = [&](int a, int b) {
-                const Student& s1 = all_students[a];
-                const Student& s2 = all_students[b];
-                if (s1.avg_score != s2.avg_score) return s1.avg_score > s2.avg_score;
-                for (int i = 0; i < 9; ++i) {
-                    if (s1.scores[i] != s2.scores[i]) return s1.scores[i] > s2.scores[i];
-                }
-                return s1.name < s2.name;
-            };
-            sort(ranking.begin(), ranking.end(), cmp);
+            ranking.clear();
+            for (int idx : latest_set) {
+                ranking.push_back(idx);
+            }
             for (int i = 0; i < (int)ranking.size(); ++i) {
                 all_students[ranking[i]].rank = i + 1;
             }
